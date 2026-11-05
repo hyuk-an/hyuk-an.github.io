@@ -138,3 +138,6 @@ body{border-top:4px solid var(--orange)}
 .photo{padding:4px; background:#fff; border:2px solid var(--orange); box-shadow:none}
 .side .role .dept{font-size:.85rem}
 .photo{padding:0; background:none; border:3px solid var(--orange)}
+/* LinkedIn button: brand-blue logo so it reads as LinkedIn at a glance */
+.pill.icon .fa-linkedin{color:#0a66c2; font-size:1.15rem}
+@media (prefers-color-scheme:dark){ .pill.icon .fa-linkedin{color:#70b5f9} }
