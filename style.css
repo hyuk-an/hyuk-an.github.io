@@ -143,5 +143,8 @@ body{border-top:4px solid var(--orange)}
 @media (prefers-color-scheme:dark){ .pill.icon .fa-linkedin{color:#70b5f9} }
 .pill.icon .fa-graduation-cap{color:#4285f4; font-size:1.05rem}
 @media (prefers-color-scheme:dark){ .pill.icon .fa-graduation-cap{color:#8ab4f8} }
+/* linked paper titles: keep title colour, underline on hover */
+.card h3 a{color:inherit}
+.card h3 a:hover{color:var(--navy); text-decoration:underline; text-underline-offset:3px}
 /* 3D office button */
 .pill.icon .fa-cube{color:var(--orange); font-size:1rem}
