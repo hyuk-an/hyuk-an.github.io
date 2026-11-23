@@ -143,3 +143,5 @@ body{border-top:4px solid var(--orange)}
 @media (prefers-color-scheme:dark){ .pill.icon .fa-linkedin{color:#70b5f9} }
 .pill.icon .fa-graduation-cap{color:#4285f4; font-size:1.05rem}
 @media (prefers-color-scheme:dark){ .pill.icon .fa-graduation-cap{color:#8ab4f8} }
+/* 3D office button */
+.pill.icon .fa-cube{color:var(--orange); font-size:1rem}

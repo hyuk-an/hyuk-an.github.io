@@ -1,0 +1,1319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Room K471 · Hyuk An</title>
+<meta name="description" content="A small 3D version of Hyuk An's office at the Korea Development Institute. Walk around and click things.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg?v=2">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#2d2c2b; --text:#4a4845; --muted:#6f6a65; --navy:#1f3d6b; --orange:#f5821f;
+  --surface:rgba(255,255,255,.88); --line:rgba(0,0,0,.08); --bg:#faf8f5;
+}
+@media (prefers-color-scheme:dark){
+  :root{ --ink:#f2efeb; --text:#d6d1cb; --muted:#a39d96; --navy:#8fb3e8;
+         --surface:rgba(30,29,27,.88); --line:rgba(255,255,255,.12); --bg:#151412; }
+}
+*{box-sizing:border-box}
+html,body{margin:0; height:100%; overflow:hidden; background:var(--bg); color:var(--text);
+  font-family:"Inter",-apple-system,"Segoe UI","Malgun Gothic",sans-serif; -webkit-font-smoothing:antialiased}
+[hidden]{display:none !important}
+#scene{position:fixed; inset:0; width:100%; height:100%; display:block; touch-action:none; cursor:grab; outline:none}
+#scene.dragging{cursor:grabbing}
+#scene.hovering{cursor:pointer}
+
+.pill{display:inline-flex; align-items:center; gap:6px; height:36px; padding:0 14px; border-radius:980px; border:0;
+  background:var(--surface); color:var(--ink); font:500 .88rem/1 "Inter",-apple-system,"Segoe UI",sans-serif; text-decoration:none;
+  -webkit-backdrop-filter:saturate(180%) blur(16px); backdrop-filter:saturate(180%) blur(16px);
+  box-shadow:0 2px 12px rgba(0,0,0,.10); cursor:pointer; white-space:nowrap}
+a:focus-visible,button:focus-visible{outline:2px solid var(--navy); outline-offset:2px}
+
+.top{position:fixed; top:0; left:0; right:0; z-index:5; display:flex; align-items:center; gap:8px;
+  padding:max(12px,env(safe-area-inset-top)) 16px 12px; pointer-events:none}
+.top > *{pointer-events:auto}
+.where{cursor:default; color:var(--muted)}
+.where b{color:var(--ink); font-weight:600}
+.menuwrap{position:relative}
+#photoBtn{margin-left:auto}
+.pill.on{background:var(--orange); color:#fff}
+#photoBadge{position:fixed; z-index:4; left:16px; bottom:max(16px,env(safe-area-inset-bottom)); cursor:default; color:var(--muted)}
+#photoBadge b{color:var(--ink); font-weight:600}
+#menu{position:absolute; right:0; top:44px; margin:0; padding:6px; list-style:none; min-width:250px; max-height:70vh; overflow:auto;
+  background:var(--surface); -webkit-backdrop-filter:saturate(180%) blur(16px); backdrop-filter:saturate(180%) blur(16px);
+  border-radius:14px; box-shadow:0 10px 32px rgba(0,0,0,.18)}
+#menu button{display:block; width:100%; text-align:left; border:0; background:none; color:var(--ink); font:inherit; font-size:.88rem;
+  padding:9px 12px; border-radius:9px; cursor:pointer}
+#menu button span{color:var(--muted); font-size:.8rem}
+#menu button:hover{background:var(--line)}
+
+.hint{position:fixed; z-index:4; left:50%; bottom:max(16px,env(safe-area-inset-bottom)); transform:translateX(-50%);
+  height:auto; min-height:36px; padding:9px 16px; line-height:1.4; text-align:center; white-space:normal; width:max-content;
+  max-width:calc(100% - 32px); cursor:default; transition:opacity .6s}
+.hint.gone{opacity:0; pointer-events:none}
+
+#tip{position:fixed; z-index:6; pointer-events:none; background:var(--surface); color:var(--ink); font-size:.8rem; font-weight:500;
+  padding:5px 10px; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,.12); transform:translate(14px,14px); white-space:nowrap}
+
+#panel{position:fixed; z-index:7; top:68px; right:16px; width:min(360px,calc(100% - 32px)); max-height:calc(100% - 100px); overflow:auto;
+  background:var(--surface); -webkit-backdrop-filter:saturate(180%) blur(20px); backdrop-filter:saturate(180%) blur(20px);
+  border-radius:18px; padding:20px 22px 18px; box-shadow:0 14px 44px rgba(0,0,0,.20); animation:pop .22s ease}
+@keyframes pop{from{opacity:0; transform:translateY(6px)} to{opacity:1; transform:none}}
+#panel .kicker{margin:0; font-size:.72rem; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--navy)}
+#panel h2{color:var(--ink); font-size:1.08rem; line-height:1.35; letter-spacing:-.015em; margin:4px 30px 6px 0}
+#panel .meta{margin:0 0 8px; font-size:.86rem; color:var(--muted)}
+#panel .body{margin:0 0 14px; font-size:.92rem; line-height:1.55}
+#panel .links{display:flex; flex-wrap:wrap; gap:6px}
+#panel .links a{font-size:.82rem; font-weight:500; padding:7px 13px; border-radius:980px; background:var(--orange); color:#fff; text-decoration:none}
+#panel .links a.alt{background:var(--line); color:var(--ink)}
+#close{position:absolute; top:12px; right:12px; width:30px; height:30px; border-radius:50%; border:0; background:var(--line);
+  color:var(--ink); font-size:1.1rem; line-height:1; cursor:pointer}
+
+#loading{position:fixed; inset:0; z-index:8; display:grid; place-items:center; background:var(--bg); color:var(--muted);
+  font-size:.9rem; transition:opacity .5s}
+#loading.done{opacity:0; pointer-events:none}
+#fallback{position:fixed; inset:0; display:grid; place-items:center; padding:24px; text-align:center; background:var(--bg); color:var(--ink)}
+#fallback a{color:var(--navy)}
+
+@media (max-width:640px){
+  #panel{top:auto; bottom:12px; left:12px; right:12px; width:auto; max-height:58vh}
+  .hint{font-size:.8rem}
+  .where span{display:none}
+  #photoBtn .lbl{display:none}
+}
+@media (prefers-reduced-motion:reduce){ #panel{animation:none} .hint,#loading{transition:none} }
+</style>
+</head>
+<body>
+
+<canvas id="scene" tabindex="0" aria-label="A 3D office. Use the Objects menu for a list of everything in the room."></canvas>
+
+<header class="top">
+  <a class="pill" href="index.html">← Homepage</a>
+  <span class="pill where"><b>Room K471</b><span>&nbsp;· Sejong <span id="hudTime"></span></span></span>
+  <button class="pill" id="photoBtn" aria-pressed="false" aria-label="Ray-traced photo mode" title="Ray-traced photo mode: hold still and the picture sharpens">📷<span class="lbl"> Photo</span></button>
+  <div class="menuwrap">
+    <button class="pill" id="menuBtn" aria-expanded="false" aria-controls="menu">Objects</button>
+    <ul id="menu" hidden></ul>
+  </div>
+</header>
+
+<div id="hint" class="pill hint">Drag to look around · WASD / arrow keys or tap the floor to walk · Click anything that glows</div>
+<div id="tip" hidden></div>
+<div id="photoBadge" class="pill" hidden aria-live="polite"></div>
+
+<aside id="panel" hidden aria-live="polite">
+  <button id="close" aria-label="Close">×</button>
+  <p class="kicker"></p>
+  <h2></h2>
+  <p class="meta"></p>
+  <p class="body"></p>
+  <div class="links"></div>
+</aside>
+
+<div id="loading">Setting up the office…</div>
+<div id="fallback" hidden>
+  <p>This room needs WebGL, which isn’t available in this browser.<br><a href="index.html">Back to the homepage</a></p>
+</div>
+<noscript><div style="position:fixed;inset:0;display:grid;place-items:center;text-align:center">This room needs JavaScript. <a href="index.html">Back to the homepage</a></div></noscript>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+  "three/examples/jsm/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+  "three-mesh-bvh": "https://cdn.jsdelivr.net/npm/three-mesh-bvh@0.7.8/build/index.module.js",
+  "three-gpu-pathtracer": "https://cdn.jsdelivr.net/npm/three-gpu-pathtracer@0.0.23/build/index.module.js"
+} }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+
+const $ = s => document.querySelector(s);
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const coarse = matchMedia('(pointer: coarse)').matches;
+// High quality = post-processing (ambient occlusion, bloom, SMAA) and sharper shadows. Desktop only.
+let HQ = !coarse && Math.min(innerWidth, innerHeight * 1.6) >= 900;
+
+/* ---------- Seoul time (UTC+9, no DST) ---------- */
+function kst() {
+  const t = (Date.now() / 1000 + 9 * 3600) % 86400;
+  return { h: Math.floor(t / 3600), m: Math.floor(t / 60) % 60, s: t % 60 };
+}
+const pad = n => String(Math.floor(n)).padStart(2, '0');
+const phaseOf = h => (h >= 20 || h < 5) ? 'night' : (h < 7 || h >= 17) ? 'dusk' : 'day';
+const qTime = new URLSearchParams(location.search).get('time');   // ?time=day|dusk|night to preview
+const PHASE = ['day', 'dusk', 'night'].includes(qTime) ? qTime : phaseOf(kst().h);
+
+/* ---------- Content ---------- */
+const ITEMS = {
+  about: { label: 'Monitor', menu: 'Monitor', kicker: 'About',
+    title: 'Hyuk An', meta: 'Research Associate, Korea Development Institute',
+    body: 'Applied macroeconomics and monetary policy. This is a small 3D version of my office, Room K471 in Sejong. Walk around and open anything that glows.',
+    links: [['CV (PDF)', 'Hyuk_An_CV.pdf'], ['Email', 'mailto:hyukan@kdi.re.kr'], ['Homepage', 'index.html']] },
+  cv: { label: 'A stack of paper', menu: 'Paper stack', kicker: 'CV',
+    title: 'Curriculum Vitae', meta: 'One page',
+    body: 'Everything in this room, minus the furniture.',
+    links: [['Open CV (PDF)', 'Hyuk_An_CV.pdf']] },
+  econlet: { label: 'Economics Letters, 2026', menu: 'Blue book', kicker: 'Publication',
+    title: 'Perceived Central Bank Partisanship and the Anchoring of Inflation Expectations',
+    meta: 'with Changkeun Lee and Soomin Lim · Economics Letters, 270, 113345 (2026)',
+    body: 'An information-provision experiment with 2,000 Korean adults. Anchoring to the inflation target is stronger when people see the central bank as leaning toward their own side.',
+    links: [['Published version', 'https://doi.org/10.1016/j.econlet.2026.113345'], ['Working paper', 'https://papers.ssrn.com/sol3/papers.cfm?abstract_id=7086745']] },
+  kjio: { label: 'KJIO, 2025', menu: 'Red book', kicker: 'Publication',
+    title: 'A Comparison of Korean and EU Competition Law on the Regulation of Information Exchange',
+    meta: 'with Hyeonjin Chon and Jeong Yeol Kim · The Korean Journal of Industrial Organization, 33(4), 2025 (in Korean)',
+    body: 'Evaluates the Korean regulation of information exchange in light of EU competition law.',
+    links: [['Published version', 'https://doi.org/10.36354/KJIO.33.4.1']] },
+  llm: { label: 'LLM analysts', menu: 'Teal book', kicker: 'Working paper',
+    title: 'Simulating Analyst Forecast Behavior using LLMs',
+    meta: 'with Seohyun Lee · KDI School Working Paper No. 26-14',
+    body: 'Can a commercial LLM match human analysts at EPS forecasting? Across 121,369 forecasts for Korean listed firms, analysts still win on average, but newer models close much of the gap.',
+    links: [['SSRN', 'https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6940898'], ['Slides', 'slides_llm_analyst_serc2026.pdf']] },
+  fomc: { label: 'Whiteboard', menu: 'Whiteboard', kicker: 'Working paper',
+    title: 'How the FOMC Weighs Its Dual Mandate',
+    meta: 'Revise and resubmit, Economic Modelling',
+    body: 'Large language models score the tone of each member’s remarks in the FOMC transcripts. The estimates say the FOMC puts more weight on the inflation gap than on the unemployment gap.',
+    links: [['Paper (PDF)', 'An_FOMC_Dual_Mandate.pdf']] },
+  serc: { label: 'Conference poster', menu: 'Poster', kicker: 'Conference',
+    title: 'Singapore Economic Review Conference 2026', meta: 'Singapore',
+    body: 'Presented “Simulating Analyst Forecast Behavior using LLMs” with Seohyun Lee.',
+    links: [['Slides', 'slides_llm_analyst_serc2026.pdf']] },
+  ku: { label: 'Korea University diploma', menu: 'Diploma, left', kicker: 'Education',
+    title: 'Korea University', meta: 'Bachelor of Economics, with Great Honor · 2020–2023',
+    body: 'Including an exchange semester at the National University of Singapore (Spring 2022).', links: [] },
+  kdis: { label: 'KDI School diploma', menu: 'Diploma, right', kicker: 'Education',
+    title: 'KDI School of Public Policy and Management',
+    meta: 'Master of Public Policy, Finance and Macroeconomic Policy · expected Dec 2026', body: '', links: [] },
+  crane: { label: 'Tower crane', menu: 'Tower crane', kicker: 'Policy report',
+    title: 'Construction investment section', meta: 'KDI Monthly Economic Trends · from December 2026',
+    body: 'I cover construction investment in KDI’s monthly report on the Korean economy. Hence the crane.',
+    links: [['KDI Monthly Economic Trends', 'https://www.kdi.re.kr/eng/research/monTrends']] },
+  clock: { label: 'Clock (Seoul time)', menu: 'Clock', kicker: 'Seoul time',
+    title: '', meta: '', body: 'The view out the window follows Korean time too: daylight, dusk or night, depending on when you visit.', links: [] },
+  door: { label: 'Exit', menu: 'Door', kicker: 'Exit',
+    title: 'Leaving already?', meta: '', body: 'The regular homepage has the same things, in a list.',
+    links: [['Back to homepage', 'index.html']] },
+};
+
+/* ---------- Renderer ---------- */
+const canvas = $('#scene');
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+} catch (err) {
+  $('#fallback').hidden = false; $('#hint').hidden = true; $('.top').hidden = true; $('#loading').hidden = true;
+  throw err;
+}
+const PR = Math.min(devicePixelRatio, HQ ? 1.25 : 1.75);
+renderer.setPixelRatio(PR);
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const maxAniso = renderer.capabilities.getMaxAnisotropy();
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x202020);
+const camera = new THREE.PerspectiveCamera(innerWidth < 640 ? 78 : 66, innerWidth / innerHeight, 0.05, 60);
+camera.rotation.order = 'YXZ';
+
+await Promise.race([
+  Promise.all([document.fonts.load('600 40px Inter'), document.fonts.load('400 40px Inter')]),
+  new Promise(r => setTimeout(r, 1500)),
+]).catch(() => {});
+
+/* ---------- Lighting presets by time of day ---------- */
+const LIGHT = {
+  day:   { hemi: .15, sun: 3.6, sunCol: 0xfff0d8, win: 1.6, winCol: 0xd6e7ff, ceil: 3.0, panel: 1.4, lamp: 1.0, env: .22 },
+  dusk:  { hemi: .10, sun: 2.4, sunCol: 0xffa766, win: .8,  winCol: 0xffc596, ceil: 5.5, panel: 2.0, lamp: 2.2, env: .16 },
+  night: { hemi: .05, sun: .30, sunCol: 0x8fa8ff, win: .15, winCol: 0x7088d0, ceil: 7.5, panel: 2.6, lamp: 2.8, env: .10 },
+}[PHASE];
+
+/* ---------- Helpers ---------- */
+const FONT = '"Inter","Segoe UI",Arial,sans-serif';
+const HAND = '"Segoe Print","Bradley Hand","Comic Sans MS","Chalkboard SE",cursive';
+const SERIF = 'Georgia,"Times New Roman",serif';
+function mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const rnd = mulberry32(471);
+const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
+
+function tex(w, h, draw, { repeat, color = true } = {}) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const x = c.getContext('2d'); draw(x, w, h);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = color ? THREE.SRGBColorSpace : THREE.NoColorSpace; t.anisotropy = maxAniso;
+  if (repeat) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(repeat[0], repeat[1]); }
+  return t;
+}
+const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: .8, metalness: 0, envMapIntensity: LIGHT.env, ...o });
+const phys = (color, o = {}) => new THREE.MeshPhysicalMaterial({ color, roughness: .6, metalness: 0, envMapIntensity: LIGHT.env, ...o });
+// Self-lit surfaces (sky, screens). Emissive rather than "basic" so the ray tracer treats them as light sources.
+const flat = map => new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0xffffff, emissiveMap: map, roughness: 1, metalness: 0, envMapIntensity: 0, toneMapped: false });
+const glassM = () => new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: .04, metalness: 0, transparent: true, opacity: .12, envMapIntensity: 1.2, depthWrite: false });
+
+function shadowy(m) { m.castShadow = true; m.receiveShadow = true; return m; }
+function box(w, h, d, mat, x, y, z, parent = scene, r) {
+  const rr = Array.isArray(mat) ? 0 : (r === undefined ? Math.min(.008, Math.min(w, h, d) * .3) : r);
+  const geo = rr > 0 ? new RoundedBoxGeometry(w, h, d, 2, rr) : new THREE.BoxGeometry(w, h, d);
+  const m = shadowy(new THREE.Mesh(geo, mat)); m.position.set(x, y, z); parent.add(m); return m;
+}
+function cyl(rt, rb, h, mat, x, y, z, parent = scene, seg = 32, open = false) {
+  const m = shadowy(new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg, 1, open), mat));
+  m.position.set(x, y, z); parent.add(m); return m;
+}
+function lathe(pts, mat, x, y, z, parent = scene, seg = 48) {
+  const m = shadowy(new THREE.Mesh(new THREE.LatheGeometry(pts.map(([a, b]) => new THREE.Vector2(a, b)), seg), mat));
+  m.position.set(x, y, z); parent.add(m); return m;
+}
+function plane(w, h, mat, parent = scene) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat); m.receiveShadow = true; parent.add(m); return m;
+}
+function group(x, y, z, ry = 0, parent = scene) {
+  const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = ry; parent.add(g); return g;
+}
+function centerText(x, text, y, font, color, w) { x.font = font; x.fillStyle = color; x.textAlign = 'center'; x.fillText(text, w / 2, y); x.textAlign = 'left'; }
+
+/* ---------- Procedural surface textures ---------- */
+function plaster(base, repeat) {
+  return tex(512, 512, (x, w, h) => {
+    x.fillStyle = base; x.fillRect(0, 0, w, h);
+    for (let i = 0; i < 14000; i++) {
+      const v = rnd(), s = 1 + rnd() * 2.5;
+      x.fillStyle = v < .5 ? `rgba(0,0,0,${rnd() * .03})` : `rgba(255,255,255,${rnd() * .05})`;
+      x.fillRect(rnd() * w, rnd() * h, s, s);
+    }
+  }, { repeat });
+}
+function woodGrain(base, dark, repeat = [1, 1], w = 1024, h = 512) {
+  return tex(w, h, (x) => {
+    x.fillStyle = base; x.fillRect(0, 0, w, h);
+    for (let i = 0; i < 260; i++) {
+      const y0 = rnd() * h, amp = 2 + rnd() * 7, f = .003 + rnd() * .008, ph = rnd() * 6;
+      x.strokeStyle = `rgba(${dark},${.04 + rnd() * .12})`; x.lineWidth = .6 + rnd() * 2;
+      x.beginPath();
+      for (let X = 0; X <= w; X += 8) { const Y = y0 + Math.sin(X * f + ph) * amp + Math.sin(X * f * 3.3 + ph * 2) * amp * .3; X ? x.lineTo(X, Y) : x.moveTo(X, Y); }
+      x.stroke();
+    }
+  }, { repeat });
+}
+function planks() {
+  const S = 2048, rows = 10, rh = S / rows;
+  const col = document.createElement('canvas'), bmp = document.createElement('canvas');
+  col.width = col.height = bmp.width = bmp.height = S;
+  const c = col.getContext('2d'), b = bmp.getContext('2d');
+  b.fillStyle = '#808080'; b.fillRect(0, 0, S, S);
+  for (let r = 0; r < rows; r++) {
+    let xp = -((r * .37) % 1) * S * .5;
+    while (xp < S) {
+      const len = S * (.4 + rnd() * .45), v = (rnd() - .5) * 30, y = r * rh;
+      const g = c.createLinearGradient(0, y, 0, y + rh);
+      g.addColorStop(0, `rgb(${168 + v},${125 + v * .8},${86 + v * .6})`); g.addColorStop(1, `rgb(${158 + v},${116 + v * .8},${80 + v * .6})`);
+      c.fillStyle = g; c.fillRect(xp, y, len, rh);
+      for (let k = 0; k < 16; k++) {
+        const yy = y + rnd() * rh, a = .04 + rnd() * .1, amp = 2 + rnd() * 5;
+        c.strokeStyle = `rgba(70,40,15,${a})`; c.lineWidth = .8 + rnd() * 1.6;
+        b.strokeStyle = `rgba(60,60,60,${a})`; b.lineWidth = c.lineWidth;
+        for (const ctx of [c, b]) { ctx.beginPath(); ctx.moveTo(xp, yy); ctx.bezierCurveTo(xp + len * .3, yy + amp, xp + len * .6, yy - amp, xp + len, yy); ctx.stroke(); }
+      }
+      if (rnd() < .25) { c.fillStyle = 'rgba(70,40,15,.25)'; c.beginPath(); c.ellipse(xp + rnd() * len, y + rh * (.3 + rnd() * .4), 10 + rnd() * 14, 5 + rnd() * 5, 0, 0, 7); c.fill(); }
+      c.fillStyle = 'rgba(40,24,10,.55)'; c.fillRect(xp, y, 3, rh);
+      b.fillStyle = '#202020'; b.fillRect(xp, y, 4, rh);
+      xp += len;
+    }
+    c.fillStyle = 'rgba(40,24,10,.55)'; c.fillRect(0, r * rh, S, 3);
+    b.fillStyle = '#202020'; b.fillRect(0, r * rh, S, 4);
+  }
+  const map = new THREE.CanvasTexture(col), bump = new THREE.CanvasTexture(bmp);
+  map.colorSpace = THREE.SRGBColorSpace;
+  for (const t of [map, bump]) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2, 1.5); t.anisotropy = maxAniso; }
+  return { map, bump };
+}
+
+/* ---------- Interactive registry ---------- */
+const items = {};
+const visited = new Set();
+const dotTex = tex(64, 64, (x) => {
+  const g = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+  g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(.3, 'rgba(255,190,120,.95)'); g.addColorStop(1, 'rgba(255,170,90,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 64, 64);
+});
+function interactive(id, root, markerAt, facing) {
+  root.userData.id = id;
+  root.userData.facing = facing ? facing.clone().normalize() : null;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: dotTex, transparent: true, depthWrite: false, toneMapped: false }));
+  s.position.copy(markerAt); s.scale.setScalar(.08); s.raycast = () => {}; s.userData.phase = rnd() * 6;
+  scene.add(s);
+  items[id] = { root, marker: s };
+}
+
+/* ---------- Environment + lights ---------- */
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), .04).texture;
+RectAreaLightUniformsLib.init();
+
+scene.add(new THREE.HemisphereLight(0xf2f5ff, 0xb9a58c, LIGHT.hemi));
+const sun = new THREE.DirectionalLight(LIGHT.sunCol, LIGHT.sun);
+sun.position.set(-1.6, 3.4, -6.5); sun.target.position.set(.6, 0, .8);
+sun.castShadow = true; sun.shadow.mapSize.set(HQ ? 2048 : 1024, HQ ? 2048 : 1024);
+sun.shadow.bias = -.0004; sun.shadow.normalBias = .02;
+Object.assign(sun.shadow.camera, { left: -5, right: 5, top: 5, bottom: -5, near: .5, far: 16 });
+scene.add(sun, sun.target);
+
+const winLight = new THREE.RectAreaLight(LIGHT.winCol, LIGHT.win, 2.4, 1.4);
+winLight.position.set(0, 1.75, -2.99); winLight.lookAt(0, 1.75, 0); scene.add(winLight);
+const ceilLight = new THREE.PointLight(0xfff1df, LIGHT.ceil, 0, 2);
+ceilLight.position.set(0, 2.7, .3); scene.add(ceilLight);
+
+/* ---------- Room shell ---------- */
+const fl = planks();
+const floor = plane(8, 6, std(0xffffff, { map: fl.map, bumpMap: fl.bump, bumpScale: 1.2, roughness: .42 }));
+floor.rotation.x = -Math.PI / 2; floor.userData.walk = true;
+
+const ceilTex = plaster('#f5f3ef', [4, 3]);
+const ceiling = plane(8, 6, std(0xffffff, { map: ceilTex, roughness: .95 })); ceiling.rotation.x = Math.PI / 2; ceiling.position.y = 3;
+
+const warmWall = plaster('#ebe5dc', [4, 1.5]);
+const wallMat = () => std(0xffffff, { map: warmWall, bumpMap: warmWall, bumpScale: .4, roughness: .95 });
+const backTex = plaster('#d9e1e6', [4, 1.5]);
+const backM = std(0xffffff, { map: backTex, bumpMap: backTex, bumpScale: .4, roughness: .95 });
+// Back wall built around the window opening so sunlight only comes in through the glass
+box(8, 1.05, .04, backM, 0, .525, -3.0, scene, 0); box(8, .55, .04, backM, 0, 2.725, -3.0, scene, 0);
+box(2.8, 1.4, .04, backM, -2.6, 1.75, -3.0, scene, 0); box(2.8, 1.4, .04, backM, 2.6, 1.75, -3.0, scene, 0);
+const wf = plane(8, 3, wallMat()); wf.position.set(0, 1.5, 3); wf.rotation.y = Math.PI;
+const wl = plane(6, 3, wallMat()); wl.position.set(-4, 1.5, 0); wl.rotation.y = Math.PI / 2;
+const wr = plane(6, 3, wallMat()); wr.position.set(4, 1.5, 0); wr.rotation.y = -Math.PI / 2;
+
+const trim = phys(0xf7f5f1, { roughness: .35, clearcoat: .3 });
+box(8, .12, .018, trim, 0, .06, -2.971, scene, .004); box(8, .12, .018, trim, 0, .06, 2.991, scene, .004);
+box(.018, .12, 6, trim, -3.991, .06, 0, scene, .004); box(.018, .12, 6, trim, 3.991, .06, 0, scene, .004);
+box(8, .05, .05, trim, 0, 2.975, -2.955, scene, .006); box(8, .05, .05, trim, 0, 2.975, 2.975, scene, .006);
+box(.05, .05, 6, trim, -3.975, 2.975, 0, scene, .006); box(.05, .05, 6, trim, 3.975, 2.975, 0, scene, .006);
+
+// Ceiling light panel (glows, and lights the room as an area light)
+box(1.38, .02, .73, phys(0xe9e9e9, { metalness: .5, roughness: .35 }), 0, 2.99, .3, scene, .004);
+const panelM = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff3e2, emissiveIntensity: LIGHT.panel });
+const panelMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.3, .65), panelM);
+panelMesh.rotation.x = Math.PI / 2; panelMesh.position.set(0, 2.978, .3); scene.add(panelMesh);
+
+// Rug
+const rugTex = tex(1024, 680, (x, w, h) => {
+  x.fillStyle = '#2d3e57'; x.fillRect(0, 0, w, h);
+  x.strokeStyle = '#c9b27c'; x.lineWidth = 10; x.strokeRect(34, 34, w - 68, h - 68);
+  x.lineWidth = 3; x.strokeRect(60, 60, w - 120, h - 120);
+  x.strokeStyle = 'rgba(201,178,124,.28)'; x.lineWidth = 2;
+  for (let i = 0; i < 9; i++) for (let j = 0; j < 6; j++) {
+    const cx = 120 + i * 98, cy = 120 + j * 88; x.beginPath(); x.moveTo(cx, cy - 26); x.lineTo(cx + 26, cy); x.lineTo(cx, cy + 26); x.lineTo(cx - 26, cy); x.closePath(); x.stroke();
+  }
+  for (let i = 0; i < 40000; i++) { x.fillStyle = rnd() < .5 ? 'rgba(0,0,0,.08)' : 'rgba(255,255,255,.05)'; x.fillRect(rnd() * w, rnd() * h, 1.5, 1.5); }
+});
+const rug = box(3.2, .012, 2.1, std(0xffffff, { map: rugTex, bumpMap: rugTex, bumpScale: .8, roughness: 1, envMapIntensity: .2 }), 0, .006, .55, scene, .005);
+rug.userData.walk = true; rug.castShadow = false;
+
+/* ---------- Window (follows Seoul time) ---------- */
+const skyTex = tex(2048, 1024, (x, w, h) => {
+  const P = {
+    day: ['#4f93d4', '#d3e9f8', '#a7b8c7', '#7d90a2', .05],
+    dusk: ['#2b3a74', '#f39d62', '#3d405e', '#2a2c44', .45],
+    night: ['#050a1c', '#1c2950', '#121a2d', '#0b101f', .7],
+  }[PHASE];
+  const g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(0, P[0]); g.addColorStop(.75, P[1]); g.addColorStop(1, P[1]);
+  x.fillStyle = g; x.fillRect(0, 0, w, h);
+  if (PHASE === 'night') {
+    for (let i = 0; i < 260; i++) { x.fillStyle = `rgba(255,255,255,${rnd() * .85})`; const s = rnd() < .1 ? 2.6 : 1.4; x.fillRect(rnd() * w, rnd() * h * .55, s, s); }
+    const m = x.createRadialGradient(w * .7, h * .38, 0, w * .7, h * .38, 90); m.addColorStop(0, 'rgba(240,236,220,.35)'); m.addColorStop(1, 'rgba(240,236,220,0)');
+    x.fillStyle = m; x.fillRect(0, 0, w, h); x.fillStyle = '#f3f0e3'; x.beginPath(); x.arc(w * .7, h * .38, 28, 0, 7); x.fill();
+  } else if (PHASE === 'dusk') {
+    const s = x.createRadialGradient(w * .35, h * .66, 0, w * .35, h * .66, 380);
+    s.addColorStop(0, 'rgba(255,214,150,1)'); s.addColorStop(1, 'rgba(255,214,150,0)'); x.fillStyle = s; x.fillRect(0, 0, w, h);
+  } else {
+    for (const [cx, cy, sc] of [[.2, .4, .9], [.43, .34, .7], [.62, .42, 1.1], [.85, .36, .7]]) {
+      for (let k = 0; k < 9; k++) {
+        const gx = w * cx + (rnd() - .5) * 200 * sc, gy = h * cy + (rnd() - .5) * 40 * sc, r = (40 + rnd() * 50) * sc;
+        const cg = x.createRadialGradient(gx, gy, 0, gx, gy, r); cg.addColorStop(0, 'rgba(255,255,255,.85)'); cg.addColorStop(1, 'rgba(255,255,255,0)');
+        x.fillStyle = cg; x.beginPath(); x.ellipse(gx, gy, r * 1.6, r * .7, 0, 0, 7); x.fill();
+      }
+    }
+  }
+  x.fillStyle = P[2]; x.beginPath(); x.moveTo(0, h);
+  for (let i = 0; i <= 40; i++) x.lineTo(i * w / 40, h * (.6 + .05 * Math.sin(i * .9) + .025 * Math.sin(i * 2.3)));
+  x.lineTo(w, h); x.fill();
+  const layer = (shade, hMin, hMax, lit, seed) => {
+    const r2 = mulberry32(seed); let bx = -10;
+    while (bx < w) {
+      const bw = 50 + r2() * 90, bh = h * (hMin + r2() * (hMax - hMin));
+      x.fillStyle = shade; x.fillRect(bx, h - bh, bw - 6, bh);
+      x.fillStyle = 'rgba(255,255,255,.04)'; x.fillRect(bx, h - bh, 6, bh);
+      for (let wy = h - bh + 12; wy < h - 10; wy += 18) for (let wx = bx + 8; wx < bx + bw - 16; wx += 13)
+        if (r2() < lit) { x.fillStyle = PHASE === 'day' ? 'rgba(255,255,255,.22)' : `rgba(255,${200 + r2() * 30},${120 + r2() * 40},.9)`; x.fillRect(wx, wy, 7, 10); }
+      bx += bw;
+    }
+  };
+  layer(P[2], .12, .26, P[4] * .6, 11);
+  layer(P[3], .1, .34, P[4], 471);
+});
+const sky = plane(9, 3.2, flat(skyTex)); sky.position.set(0, 2.0, -4.3); sky.receiveShadow = false;
+const revealM = std(0xf2f2ef, { roughness: .8 });
+box(2.44, .02, .18, revealM, 0, 2.46, -3.09, scene, 0); box(2.44, .02, .18, revealM, 0, 1.04, -3.09, scene, 0);
+box(.02, 1.44, .18, revealM, -1.21, 1.75, -3.09, scene, 0); box(.02, 1.44, .18, revealM, 1.21, 1.75, -3.09, scene, 0);
+const frameM = phys(0xf4f4f2, { roughness: .35, clearcoat: .2 });
+box(2.4, .06, .06, frameM, 0, 2.42, -3.12); box(2.4, .06, .06, frameM, 0, 1.08, -3.12);
+box(.06, 1.4, .06, frameM, -1.17, 1.75, -3.12); box(.06, 1.4, .06, frameM, 1.17, 1.75, -3.12);
+box(.05, 1.3, .06, frameM, 0, 1.75, -3.12);
+const glass = plane(2.3, 1.3, glassM()); glass.position.set(0, 1.75, -3.11); glass.raycast = () => {}; glass.receiveShadow = false;
+box(2.66, .035, .26, phys(0xf7f7f5, { roughness: .3, clearcoat: .4 }), 0, 1.03, -2.94, scene, .008);
+
+/* ---------- Desk ---------- */
+const deskWoodTex = woodGrain('#8a6a4c', '50,28,10', [1, 1]);
+const deskWood = phys(0xffffff, { map: deskWoodTex, bumpMap: deskWoodTex, bumpScale: .5, roughness: .42, clearcoat: .35, clearcoatRoughness: .35 });
+const steel = phys(0x2a2b2e, { roughness: .38, metalness: .7 });
+box(1.7, .035, .78, deskWood, 0, .75, -2.55, scene, .008);
+for (const sx of [-.8, .8]) {
+  for (const sz of [-.33, .33]) box(.04, .73, .04, steel, sx, .365, -2.55 + sz, scene, .006);
+  box(.04, .04, .7, steel, sx, .71, -2.55, scene, .006);
+  box(.04, .03, .7, steel, sx, .015, -2.55, scene, .006);
+}
+box(1.52, .26, .012, steel, 0, .59, -2.9, scene, .004);
+
+// Monitor -> about
+const screenTex = tex(1280, 768, (x, w, h) => {
+  x.fillStyle = '#0d1522'; x.fillRect(0, 0, w, h);
+  x.fillStyle = '#16233a'; x.fillRect(0, 0, w, 64);
+  ['#ff5f57', '#febc2e', '#28c840'].forEach((c, i) => { x.fillStyle = c; x.beginPath(); x.arc(32 + i * 30, 32, 9, 0, 7); x.fill(); });
+  x.fillStyle = '#c7d2e3'; x.font = `500 28px ${FONT}`; x.fillText('anchoring.py — K471', 140, 42);
+  const L = 120, R = w - 70, T = 160, B = h - 140, ymax = 5;
+  const Y = v => B - (v / ymax) * (B - T), X = i => L + (i / 10) * (R - L);
+  x.fillStyle = '#ffffff'; x.font = `600 36px ${FONT}`; x.fillText('Inflation expectations by perceived central bank lean', L - 30, 122);
+  x.strokeStyle = '#26354d'; x.lineWidth = 2;
+  for (let v = 0; v <= 5; v++) { x.beginPath(); x.moveTo(L, Y(v)); x.lineTo(R, Y(v)); x.stroke(); x.fillStyle = '#7b8ba3'; x.font = `400 24px ${FONT}`; x.fillText(v + '%', L - 56, Y(v) + 8); }
+  x.setLineDash([14, 12]); x.strokeStyle = '#7fb3ff'; x.lineWidth = 3; x.beginPath(); x.moveTo(L, Y(2)); x.lineTo(R, Y(2)); x.stroke(); x.setLineDash([]);
+  x.fillStyle = '#7fb3ff'; x.fillText('target 2%', R - 120, Y(2) - 12);
+  const line = (f, c) => { x.strokeStyle = c; x.lineWidth = 6; x.lineJoin = 'round'; x.beginPath(); for (let i = 0; i <= 10; i++) { const v = f(i); i ? x.lineTo(X(i), Y(v)) : x.moveTo(X(i), Y(v)); } x.stroke(); };
+  line(i => 2.3 + 1.9 * Math.exp(-i / 2.4) + .08 * Math.sin(i * 1.7), '#5ad1a5');
+  line(i => 3.3 + 1.3 * Math.exp(-i / 4) + .1 * Math.sin(i * 1.3 + 1), '#f28b6b');
+  x.font = `500 26px ${FONT}`;
+  x.fillStyle = '#5ad1a5'; x.fillText('● own-side lean', L + 10, B + 54);
+  x.fillStyle = '#f28b6b'; x.fillText('● opposing lean', L + 260, B + 54);
+  x.fillStyle = '#5e6f88'; x.font = `400 22px ${FONT}`; x.fillText('(illustrative)', R - 136, B + 54);
+  x.fillStyle = '#8da0bb'; x.font = `400 26px ${FONT}`; x.fillText('Hyuk An · Research Associate, KDI · click anything that glows', L - 30, h - 30);
+});
+const monitor = group(0, 0, -2.69);
+const bodyM = phys(0x1c1c1e, { roughness: .3, metalness: .6 });
+const screenG = group(0, 1.15, 0, 0, monitor); screenG.rotation.x = -.06;
+box(.66, .4, .022, bodyM, 0, 0, 0, screenG, .008);
+plane(.636, .376, flat(screenTex), screenG).position.z = .0115;
+box(.05, .26, .022, phys(0xb9bcc2, { metalness: .85, roughness: .3 }), 0, -.27, -.02, screenG, .008);
+box(.24, .012, .17, phys(0xb9bcc2, { metalness: .85, roughness: .3 }), 0, .773 - 1.15, -.01, monitor, .005).position.y = .773;
+interactive('about', monitor, V3(.37, 1.37, -2.66), V3(0, 0, 1));
+
+// Keyboard + mouse
+const alu = phys(0xd8d9dc, { metalness: .6, roughness: .35 });
+box(.44, .016, .14, alu, 0, .776, -2.36, scene, .006);
+const keysTex = tex(880, 280, (x, w, h) => {
+  x.fillStyle = '#d0d1d4'; x.fillRect(0, 0, w, h);
+  const kw = w / 15;
+  for (let r = 0; r < 5; r++) for (let c = 0; c < 15; c++) {
+    if (r === 4 && c > 3 && c < 10) continue;
+    x.fillStyle = '#2e2f33'; x.beginPath(); x.roundRect(c * kw + 4, r * (h / 5) + 4, kw - 8, h / 5 - 8, 6); x.fill();
+  }
+  x.fillStyle = '#2e2f33'; x.beginPath(); x.roundRect(4 * kw + 4, 4 * (h / 5) + 4, 6 * kw - 8, h / 5 - 8, 6); x.fill();
+});
+const keysPlane = plane(.42, .125, std(0xffffff, { map: keysTex, roughness: .55 })); keysPlane.rotation.x = -Math.PI / 2; keysPlane.position.set(0, .7845, -2.36);
+const mouse = shadowy(new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), phys(0x2e2f33, { roughness: .35, clearcoat: .5 })));
+mouse.scale.set(.032, .016, .055); mouse.position.set(.31, .768, -2.36); scene.add(mouse);
+
+// Mug with coffee (and steam)
+const ceramic = phys(0xf7f6f2, { roughness: .25, clearcoat: .8, clearcoatRoughness: .1 });
+lathe([[0, 0], [.036, 0], [.04, .004], [.042, .1], [.039, .1], [.037, .01], [0, .01]], ceramic, .6, .7675, -2.44);
+cyl(.0423, .0423, .026, phys(0x1f3a5f, { roughness: .3, clearcoat: .6 }), .6, .82, -2.44, scene, 40, true);
+const coffee = new THREE.Mesh(new THREE.CircleGeometry(.038, 32), phys(0x3a2213, { roughness: .1, clearcoat: 1 }));
+coffee.rotation.x = -Math.PI / 2; coffee.position.set(.6, .85, -2.44); scene.add(coffee);
+const handle = shadowy(new THREE.Mesh(new THREE.TorusGeometry(.025, .0065, 12, 24, Math.PI), ceramic));
+handle.position.set(.642, .82, -2.44); handle.rotation.set(0, 0, -Math.PI / 2); scene.add(handle);
+const steamTex = tex(64, 64, (x) => { const g = x.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(255,255,255,.5)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64); });
+const steam = [];
+if (!reduced) for (let i = 0; i < 5; i++) {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: steamTex, transparent: true, depthWrite: false, opacity: 0 }));
+  s.raycast = () => {}; s.userData.t = i / 5; scene.add(s); steam.push(s);
+}
+
+// Name plate
+const plateTex = tex(600, 160, (x, w) => {
+  x.fillStyle = '#22303f'; x.fillRect(0, 0, w, 160);
+  centerText(x, 'Hyuk An', 78, `600 60px ${FONT}`, '#ffffff', w);
+  centerText(x, 'Research Associate · K471', 128, `400 28px ${FONT}`, '#b9c6d6', w);
+});
+const plateDark = phys(0x22303f, { roughness: .3, metalness: .3 });
+// (no multi-material meshes anywhere: the path tracer mis-indexes materials after them)
+const plate = group(.42, .806, -2.2); plate.rotation.set(-.25, -.3, 0);
+box(.3, .08, .022, plateDark, 0, 0, 0, plate, .004);
+plane(.29, .072, phys(0xffffff, { map: plateTex, roughness: .3, clearcoat: .5 }), plate).position.z = .0115;
+
+// Notebook + pen
+box(.16, .014, .22, phys(0x1f3a5f, { roughness: .7 }), .66, .774, -2.72, scene, .004).rotation.y = .2;
+const pen = cyl(.004, .004, .14, phys(0x111111, { roughness: .3, clearcoat: .6 }), .68, .786, -2.7, scene, 12); pen.rotation.set(0, .9, Math.PI / 2);
+
+// CV stack -> cv
+const cvTex = tex(420, 594, (x, w, h) => {
+  x.fillStyle = '#ffffff'; x.fillRect(0, 0, w, h);
+  x.fillStyle = '#111'; x.font = `600 40px ${FONT}`; x.fillText('Hyuk An', 34, 70);
+  x.fillStyle = '#0a4652'; x.fillRect(34, 90, w - 68, 3);
+  let y = 130;
+  for (let s = 0; s < 6; s++) {
+    x.fillStyle = '#0a4652'; x.fillRect(34, y, 90, 7); y += 22;
+    for (let l = 0; l < 2 + (s % 3); l++) { x.fillStyle = '#c9c9c9'; x.fillRect(34, y, (w - 68) * (.55 + rnd() * .45), 6); y += 15; }
+    y += 14;
+  }
+});
+const cvStack = group(-.48, .7675, -2.42, .12);
+const paperM = std(0xfbfbf8, { roughness: .95 });
+for (let i = 0; i < 6; i++) { const s = box(.21, .004, .297, paperM, 0, .002 + i * .0045, 0, cvStack, 0); s.rotation.y = (rnd() - .5) * .1; }
+const cvTop = plane(.21, .297, std(0xffffff, { map: cvTex, roughness: .9 }), cvStack);
+cvTop.rotation.x = -Math.PI / 2; cvTop.position.y = .0295;
+interactive('cv', cvStack, V3(-.48, .92, -2.42), V3(0, 0, 1));
+
+// Desk lamp with a glowing bulb
+const lampM = phys(0x1f3a5f, { roughness: .3, metalness: .5, clearcoat: .6 });
+const lamp = group(-.74, .7675, -2.68);
+lathe([[0, 0], [.075, 0], [.078, .006], [.072, .018], [.012, .022], [0, .022]], lampM, 0, 0, 0, lamp);
+const arm1 = cyl(.007, .007, .34, steel, 0, .18, .05, lamp, 12); arm1.rotation.x = .3;
+const joint = shadowy(new THREE.Mesh(new THREE.SphereGeometry(.014, 16, 12), steel)); joint.position.set(0, .345, .1); lamp.add(joint);
+const arm2 = cyl(.006, .006, .2, steel, 0, .38, .19, lamp, 12); arm2.rotation.x = 1.2;
+const shadeG = group(0, .4, .29, 0, lamp); shadeG.rotation.x = .55;
+const shadeM = phys(0x1f3a5f, { roughness: .3, metalness: .5, clearcoat: .6, side: THREE.DoubleSide });
+lathe([[.014, .02], [.03, .015], [.075, -.06], [.08, -.068]], shadeM, 0, 0, 0, shadeG);
+const bulb = new THREE.Mesh(new THREE.SphereGeometry(.022, 16, 12), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffd9a0, emissiveIntensity: 4 }));
+bulb.position.set(0, -.02, 0); shadeG.add(bulb);
+const lampLight = new THREE.PointLight(0xffd59a, LIGHT.lamp, 3, 2); lampLight.position.set(-.74, 1.1, -2.42); scene.add(lampLight);
+
+// Office chair
+const chair = group(.05, 0, -1.9, .25);
+const fabricTex = tex(256, 256, (x, w, h) => {
+  x.fillStyle = '#3a4d63'; x.fillRect(0, 0, w, h);
+  for (let i = 0; i < w; i += 3) {
+    x.fillStyle = `rgba(255,255,255,${.03 + rnd() * .04})`; x.fillRect(i, 0, 1, h);
+    x.fillStyle = `rgba(0,0,0,${.05 + rnd() * .06})`; x.fillRect(0, i, w, 1);
+  }
+}, { repeat: [3, 3] });
+const fabricM = phys(0xffffff, { map: fabricTex, bumpMap: fabricTex, bumpScale: .6, roughness: .95 });
+const blackPlastic = phys(0x1b1c1f, { roughness: .45, clearcoat: .2 });
+const chrome = phys(0xdddddd, { metalness: 1, roughness: .18 });
+box(.5, .08, .48, fabricM, 0, .49, 0, chair, .035);
+const backRest = box(.48, .58, .07, fabricM, 0, .9, .25, chair, .035); backRest.rotation.x = .12;
+box(.05, .32, .03, blackPlastic, 0, .62, .27, chair, .01);
+for (const s of [-1, 1]) { box(.03, .2, .04, blackPlastic, s * .26, .62, .02, chair, .01); box(.06, .03, .26, blackPlastic, s * .26, .73, 0, chair, .012); }
+cyl(.02, .02, .3, chrome, 0, .3, 0, chair, 20);
+cyl(.032, .036, .12, blackPlastic, 0, .2, 0, chair, 20);
+for (let i = 0; i < 5; i++) {
+  const a = i / 5 * Math.PI * 2;
+  const leg = box(.3, .028, .045, blackPlastic, Math.cos(a) * .15, .085, Math.sin(a) * .15, chair, .01); leg.rotation.y = -a;
+  const wh = shadowy(new THREE.Mesh(new THREE.SphereGeometry(.028, 16, 12), blackPlastic)); wh.position.set(Math.cos(a) * .29, .03, Math.sin(a) * .29); chair.add(wh);
+}
+
+/* ---------- Bookshelf (left wall) ---------- */
+const shelf = group(-3.82, 0, -.6);
+const shelfTex = woodGrain('#6b4f3a', '35,20,8', [1, 1]);
+const shelfM = phys(0xffffff, { map: shelfTex, bumpMap: shelfTex, bumpScale: .4, roughness: .55, clearcoat: .15 });
+box(.34, 2.2, .03, shelfM, 0, 1.1, -1.0, shelf, .005); box(.34, 2.2, .03, shelfM, 0, 1.1, 1.0, shelf, .005);
+box(.02, 2.2, 2.0, shelfM, -.16, 1.1, 0, shelf, 0);
+const levels = [.03, .56, 1.09, 1.62, 2.17];
+levels.forEach(y => box(.34, .03, 2.0, shelfM, 0, y, 0, shelf, .005));
+const bookColors = ['#7c3a2d', '#2f4858', '#86704d', '#3e5641', '#5b5f97', '#9a8c73', '#3d405b', '#8d5a4a', '#4f6d7a', '#b8a88a', '#6d2e46', '#3f6e5e'];
+// Decorative books are drawn as two instanced meshes (bodies + page tops) instead of ~150 separate meshes.
+const bandTex = tex(64, 512, (x, w, h) => {
+  x.fillStyle = '#c8c8c8'; x.fillRect(0, 0, w, h);
+  x.fillStyle = '#ffffff'; for (let k = 0; k < 2; k++) { x.fillRect(0, 40 + k * 14, w, 4); x.fillRect(0, h - 50 - k * 14, w, 4); }
+  x.fillStyle = 'rgba(255,255,255,.5)'; x.fillRect(16, 170, w - 32, 190);
+  x.fillStyle = 'rgba(0,0,0,.2)'; x.fillRect(0, 0, 4, h); x.fillRect(w - 4, 0, 4, h);
+});
+const bookList = [];
+function spineTex(bg, fg, title, sub) {
+  return tex(96, 600, (x, w, h) => {
+    x.fillStyle = bg; x.fillRect(0, 0, w, h);
+    x.fillStyle = fg; x.fillRect(0, 34, w, 5); x.fillRect(0, h - 40, w, 5);
+    x.save(); x.translate(w / 2, h / 2); x.rotate(Math.PI / 2);
+    x.textAlign = 'center'; x.fillStyle = fg; x.font = `600 38px ${FONT}`; x.fillText(title, -30, 13);
+    x.font = `400 26px ${FONT}`; x.globalAlpha = .85; x.fillText(sub, 200, 10); x.restore();
+    x.fillStyle = 'rgba(0,0,0,.2)'; x.fillRect(0, 0, 4, h); x.fillRect(w - 4, 0, 4, h);
+  });
+}
+const special = [
+  ['econlet', '#1f3a5f', '#e8c977', 'Econ Letters', '2026'],
+  ['kjio', '#7a1f2b', '#f1e3c6', 'KJIO', '2025'],
+  ['llm', '#125e63', '#e6f4f1', 'LLM Analysts', 'WP 26-14'],
+];
+const bookFront = .17;
+levels.slice(0, 4).forEach((base, li) => {
+  let z = -.96;
+  const top = levels[li + 1] - .03;
+  while (z < .95) {
+    if (li === 2 && z > -.42 && z < -.3) {
+      z += .03;
+      special.forEach(([id, col, fg, title, sub]) => {
+        const t = .075, h = .42, d = .27;
+        const cover = phys(new THREE.Color(col), { roughness: .5, clearcoat: .3 }), pages = std(0xf1ead8, { roughness: .95 });
+        const g = group(bookFront - d / 2 - .005, base + .015 + h / 2, z + t / 2, 0, shelf);
+        box(d, h, t, cover, 0, 0, 0, g, .003);
+        box(d - .012, .003, t - .006, pages, -.004, h / 2 + .0012, 0, g, 0);
+        const spine = plane(t - .002, h - .004, phys(0xffffff, { map: spineTex(col, fg, title, sub), roughness: .5, clearcoat: .3 }), g);
+        spine.rotation.y = Math.PI / 2; spine.position.x = d / 2 + .0006;
+        interactive(id, g, V3(-3.58, base + .015 + h + .07, -.6 + z + t / 2), V3(1, 0, 0));
+        z += t + .006;
+      });
+      box(.16, .2, .02, phys(0x2b2b2e, { metalness: .8, roughness: .3 }), bookFront - .1, base + .115, z + .015, shelf, .004);
+      z += .08;
+      continue;
+    }
+    const t = .025 + rnd() * .035, h = Math.min(.26 + rnd() * .18, top - base - .03), d = .21 + rnd() * .06;
+    if (z + t > .96) break;
+    if (rnd() < .05) { z += .07 + rnd() * .08; continue; }
+    bookList.push({ d, h, t, x: bookFront - d / 2 - .005, y: base + .015 + h / 2, z: z + t / 2, c: bookColors[Math.floor(rnd() * bookColors.length)] });
+    z += t + .002;
+  }
+});
+{
+  // All decorative books merged into one mesh (colour per vertex), plus one mesh for the page tops.
+  const col = new THREE.Color(), bodyGeos = [], topGeos = [];
+  for (const b of bookList) {
+    const g = new THREE.BoxGeometry(b.d, b.h, b.t); g.translate(b.x, b.y, b.z);
+    col.set(b.c).multiplyScalar(1.25);
+    const n = g.attributes.position.count, c = new Float32Array(n * 4);
+    for (let i = 0; i < n; i++) c.set([col.r, col.g, col.b, 1], i * 4);
+    g.setAttribute('color', new THREE.BufferAttribute(c, 4));
+    bodyGeos.push(g);
+    const tg = new THREE.BoxGeometry(b.d - .012, .003, b.t - .005); tg.translate(b.x - .004, b.y + b.h / 2 + .001, b.z); topGeos.push(tg);
+  }
+  const bodies = new THREE.Mesh(mergeGeometries(bodyGeos), std(0xffffff, { map: bandTex, roughness: .6, vertexColors: true }));
+  const tops = new THREE.Mesh(mergeGeometries(topGeos), std(0xf1ead8, { roughness: .95 }));
+  for (const m of [bodies, tops]) { m.castShadow = true; m.receiveShadow = true; shelf.add(m); }
+}
+// small plant on the top shelf
+lathe([[0, 0], [.05, 0], [.06, .1], [.065, .105], [.065, .115], [.058, .115], [.052, .1]], phys(0xc8735a, { roughness: .8 }), .02, 2.185, .7, shelf, 32);
+
+/* ---------- Plant (back-left corner) ---------- */
+const plantG = group(-3.45, 0, -2.5);
+lathe([[0, 0], [.15, 0], [.19, .34], [.205, .35], [.205, .38], [.188, .38], [.172, .35]], phys(0xc4704f, { roughness: .85 }), 0, 0, 0, plantG);
+const soil = new THREE.Mesh(new THREE.CircleGeometry(.175, 32), std(0x3b2a1e, { roughness: 1 })); soil.rotation.x = -Math.PI / 2; soil.position.y = .355; plantG.add(soil);
+const leafShape = new THREE.Shape();
+leafShape.moveTo(0, 0);
+leafShape.bezierCurveTo(.11, .02, .15, .14, 0, .28);
+leafShape.bezierCurveTo(-.15, .14, -.11, .02, 0, 0);
+const leafGeo = new THREE.ShapeGeometry(leafShape, 16);
+{
+  const p = leafGeo.attributes.position;
+  for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i); p.setZ(i, -1.6 * y * y + 2.2 * x * x); }
+  leafGeo.computeVertexNormals();
+}
+const stemM = phys(0x4e6b3a, { roughness: .6 });
+for (let i = 0; i < 11; i++) {
+  const a = i / 11 * Math.PI * 2 + rnd() * .4, r = .14 + rnd() * .2, hgt = .62 + rnd() * .55;
+  const end = V3(Math.cos(a) * r, hgt, Math.sin(a) * r);
+  const curve = new THREE.CatmullRomCurve3([V3(0, .34, 0), V3(Math.cos(a) * r * .3, .34 + (hgt - .34) * .6, Math.sin(a) * r * .3), end]);
+  plantG.add(shadowy(new THREE.Mesh(new THREE.TubeGeometry(curve, 16, .006, 6), stemM)));
+  const leaf = shadowy(new THREE.Mesh(leafGeo, phys(new THREE.Color().setHSL(.3 + rnd() * .04, .45, .24 + rnd() * .08), { roughness: .45, clearcoat: .3, side: THREE.DoubleSide })));
+  const lg = new THREE.Group(); lg.position.copy(end); plantG.add(lg);
+  lg.lookAt(plantG.position.clone().add(end).add(V3(Math.cos(a), -.35 - rnd() * .3, Math.sin(a))));
+  leaf.rotation.x = Math.PI / 2; leaf.rotation.y = (rnd() - .5) * .6; lg.add(leaf);
+}
+
+/* ---------- Whiteboard (right wall) -> fomc ---------- */
+const wbTex = tex(1600, 880, (x, w, h) => {
+  x.fillStyle = '#ffffff'; x.fillRect(0, 0, w, h);
+  for (let i = 0; i < 6; i++) { x.fillStyle = 'rgba(120,130,150,.05)'; x.beginPath(); x.ellipse(rnd() * w, rnd() * h, 160 + rnd() * 120, 40 + rnd() * 40, rnd(), 0, 7); x.fill(); }
+  const blue = '#1d4ed8', red = '#c0392b', black = '#222';
+  x.fillStyle = blue; x.font = `600 58px ${HAND}`; x.fillText('How does the FOMC weigh its dual mandate?', 70, 110);
+  x.fillStyle = black; x.font = `500 78px ${HAND}`; x.fillText('L = (π − π*)² + λ (u − u*)²', 110, 260);
+  x.strokeStyle = red; x.lineWidth = 6; x.beginPath(); x.ellipse(770, 236, 54, 60, 0, 0, 7); x.stroke();
+  x.fillStyle = red; x.font = `500 52px ${HAND}`; x.fillText('λ = ?', 860, 370);
+  x.strokeStyle = red; x.beginPath(); x.moveTo(800, 300); x.quadraticCurveTo(820, 340, 850, 350); x.stroke();
+  x.fillStyle = blue; x.font = `500 46px ${HAND}`;
+  x.fillText('transcripts → LLM tone → λ̂', 90, 470);
+  x.fillText('SEP + EDO / LINVER check', 90, 550);
+  x.fillStyle = black; x.font = `500 48px ${HAND}`; x.fillText('inflation gap  >  unemployment gap', 90, 690);
+  x.strokeStyle = black; x.lineWidth = 5; x.beginPath(); x.moveTo(90, 712); x.lineTo(900, 716); x.stroke();
+  x.strokeStyle = '#333'; x.lineWidth = 4; x.beginPath(); x.moveTo(1120, 360); x.lineTo(1120, 700); x.lineTo(1500, 700); x.stroke();
+  x.fillStyle = blue; for (let i = 0; i < 26; i++) { const px = 1140 + rnd() * 340, py = 680 - (px - 1140) * .7 - rnd() * 110; x.beginPath(); x.arc(px, Math.max(380, py), 7, 0, 7); x.fill(); }
+  x.strokeStyle = red; x.lineWidth = 5; x.beginPath(); x.moveTo(1130, 690); x.lineTo(1490, 430); x.stroke();
+  x.fillStyle = black; x.font = `500 34px ${HAND}`; x.fillText('2012–2020', 1250, 760);
+  x.save(); x.translate(1260, 70); x.rotate(.05); x.fillStyle = 'rgba(0,0,0,.08)'; x.fillRect(6, 8, 250, 200); x.fillStyle = '#ffe66d'; x.fillRect(0, 0, 250, 200);
+  x.fillStyle = '#5a4a00'; x.font = `500 40px ${HAND}`; x.fillText('more', 40, 80); x.fillText('coffee', 40, 140); x.restore();
+});
+const wb = group(3.97, 1.55, -.6, -Math.PI / 2);
+const aluFrame = phys(0xc9cdd2, { metalness: .8, roughness: .3 });
+box(2.08, 1.18, .03, aluFrame, 0, 0, -.012, wb, .01);
+plane(2.0, 1.1, phys(0xffffff, { map: wbTex, roughness: .22, clearcoat: .8, clearcoatRoughness: .15 }), wb).position.z = .0045;
+box(.9, .03, .07, aluFrame, 0, -.6, .035, wb, .008);
+[0x1d4ed8, 0xc0392b, 0x222222].forEach((c, i) => { const mk = cyl(.008, .008, .12, phys(c, { roughness: .4, clearcoat: .5 }), -.2 + i * .05, -.575, .04, wb, 12); mk.rotation.z = Math.PI / 2; });
+interactive('fomc', wb, V3(3.9, 2.22, -.6));
+
+/* ---------- Diplomas (right wall) ---------- */
+function diploma(id, z, school, degree, line3) {
+  const t = tex(840, 640, (x, w, h) => {
+    x.fillStyle = '#f7f1e3'; x.fillRect(0, 0, w, h);
+    x.strokeStyle = '#a88b54'; x.lineWidth = 8; x.strokeRect(26, 26, w - 52, h - 52); x.lineWidth = 2; x.strokeRect(44, 44, w - 88, h - 88);
+    centerText(x, school, 170, `600 50px ${SERIF}`, '#3b2f1e', w);
+    centerText(x, 'confers upon', 245, `italic 30px ${SERIF}`, '#6b5a3e', w);
+    centerText(x, 'Hyuk An', 320, `600 52px ${SERIF}`, '#1f3a5f', w);
+    centerText(x, degree, 400, `italic 34px ${SERIF}`, '#3b2f1e', w);
+    centerText(x, line3, 450, `28px ${SERIF}`, '#6b5a3e', w);
+    x.fillStyle = '#9b2c2c'; x.beginPath(); x.arc(w - 150, h - 130, 46, 0, 7); x.fill();
+    x.strokeStyle = '#f7f1e3'; x.lineWidth = 3; x.beginPath(); x.arc(w - 150, h - 130, 34, 0, 7); x.stroke();
+  });
+  const g = group(3.975, 1.68, z, -Math.PI / 2);
+  box(.52, .41, .03, phys(0x2e2218, { roughness: .4, clearcoat: .5 }), 0, 0, -.01, g, .006);
+  plane(.46, .35, std(0xffffff, { map: t, roughness: .8 }), g).position.z = .0065;
+  const gl = plane(.46, .35, glassM(), g); gl.position.z = .009;
+  interactive(id, g, V3(3.92, 1.98, z));
+}
+diploma('ku', 1.05, 'Korea University', 'Bachelor of Economics', 'with Great Honor');
+diploma('kdis', 1.8, 'KDI School', 'Master of Public Policy', 'Finance and Macroeconomic Policy');
+
+/* ---------- Front wall: poster + door ---------- */
+const posterTex = tex(800, 1100, (x, w, h) => {
+  const g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#0f4c5c'); g.addColorStop(1, '#0b2338'); x.fillStyle = g; x.fillRect(0, 0, w, h);
+  const s = x.createRadialGradient(w * .7, 360, 0, w * .7, 360, 220); s.addColorStop(0, 'rgba(255,190,120,.95)'); s.addColorStop(1, 'rgba(255,190,120,0)');
+  x.fillStyle = s; x.fillRect(0, 0, w, h);
+  x.fillStyle = '#ffcf8a'; x.beginPath(); x.arc(w * .7, 360, 70, 0, 7); x.fill();
+  x.fillStyle = '#082031'; let bx = 0; const r2 = mulberry32(2026);
+  while (bx < w) { const bw = 40 + r2() * 60, bh = 90 + r2() * 220; x.fillRect(bx, 560 - bh, bw - 6, bh); bx += bw; }
+  x.fillRect(0, 556, w, 30);
+  x.fillStyle = 'rgba(255,207,138,.25)'; for (let i = 0; i < 14; i++) x.fillRect(40 + i * 52, 600 + (i % 3) * 8, 30, 3);
+  x.fillStyle = '#ffffff'; x.font = `700 92px ${FONT}`; x.fillText('SERC 2026', 60, 150);
+  x.fillStyle = '#b8d7e0'; x.font = `500 32px ${FONT}`; x.fillText('Singapore Economic Review Conference', 62, 205);
+  x.fillStyle = '#ffffff'; x.font = `600 46px ${FONT}`;
+  ['Simulating Analyst', 'Forecast Behavior', 'using LLMs'].forEach((l, i) => x.fillText(l, 60, 730 + i * 58));
+  x.fillStyle = '#b8d7e0'; x.font = `400 30px ${FONT}`; x.fillText('Hyuk An · Seohyun Lee', 60, 940);
+  x.fillStyle = '#7fa6b3'; x.font = `400 24px ${FONT}`; x.fillText('KDI School of Public Policy and Management', 60, 1040);
+});
+const poster = group(-.7, 1.55, 2.985, Math.PI);
+box(.86, 1.16, .025, phys(0x1b1c1f, { roughness: .35, metalness: .4 }), 0, 0, -.008, poster, .004);
+plane(.8, 1.1, std(0xffffff, { map: posterTex, roughness: .7 }), poster).position.z = .0055;
+plane(.8, 1.1, glassM(), poster).position.z = .008;
+interactive('serc', poster, V3(-.7, 2.22, 2.93));
+
+const door = group(2.7, 0, 2.985, Math.PI);
+const doorTex = woodGrain('#a98a69', '60,35,15', [1, 1], 512, 1024);
+doorTex.rotation = Math.PI / 2; doorTex.center.set(.5, .5);
+const doorM = phys(0xffffff, { map: doorTex, bumpMap: doorTex, bumpScale: .4, roughness: .5, clearcoat: .2 });
+box(1.0, 2.1, .045, doorM, 0, 1.05, .0, door, .006);
+box(.72, .78, .016, doorM, 0, 1.55, .028, door, .006); box(.72, .78, .016, doorM, 0, .55, .028, door, .006);
+const doorFrame = phys(0xf4f4f2, { roughness: .35, clearcoat: .2 });
+box(1.12, .06, .07, doorFrame, 0, 2.13, 0, door, .006); box(.06, 2.13, .07, doorFrame, -.53, 1.065, 0, door, .006); box(.06, 2.13, .07, doorFrame, .53, 1.065, 0, door, .006);
+const ros = cyl(.03, .03, .012, chrome, -.38, 1.0, .03, door, 24); ros.rotation.x = Math.PI / 2;
+box(.14, .022, .022, chrome, -.32, 1.0, .055, door, .008);
+const exitTex = tex(360, 140, (x, w, h) => {
+  x.fillStyle = '#16834a'; x.fillRect(0, 0, w, h);
+  x.fillStyle = '#ffffff'; x.font = `700 74px ${FONT}`; x.fillText('EXIT', 40, 98);
+  x.beginPath(); x.moveTo(250, 70); x.lineTo(320, 70); x.moveTo(300, 48); x.lineTo(322, 70); x.lineTo(300, 92);
+  x.strokeStyle = '#fff'; x.lineWidth = 10; x.stroke();
+});
+const signM = std(0x16834a);
+const exitFace = new THREE.MeshStandardMaterial({ map: exitTex, emissive: 0xffffff, emissiveMap: exitTex, emissiveIntensity: 1.2 });
+box(.36, .14, .04, signM, 0, 2.4, .02, door, .006);
+plane(.35, .13, exitFace, door).position.set(0, 2.4, .0405);
+interactive('door', door, V3(2.7, 2.62, 2.92));
+
+/* ---------- Clock (back wall) ---------- */
+const faceTex = tex(512, 512, (x) => {
+  x.fillStyle = '#ffffff'; x.beginPath(); x.arc(256, 256, 256, 0, 7); x.fill();
+  x.fillStyle = '#222';
+  for (let i = 0; i < 60; i++) { x.save(); x.translate(256, 256); x.rotate(i / 60 * Math.PI * 2); x.fillRect(-(i % 5 ? 2 : 5), -238, i % 5 ? 4 : 10, i % 5 ? 16 : 34); x.restore(); }
+  x.font = `600 54px ${FONT}`; x.textAlign = 'center';
+  [['12', 256, 112], ['3', 410, 274], ['6', 256, 438], ['9', 104, 274]].forEach(([t, px, py]) => x.fillText(t, px, py));
+  x.font = `500 26px ${FONT}`; x.fillStyle = '#888'; x.fillText('SEOUL', 256, 340);
+});
+const clock = group(-2.5, 2.25, -2.965);
+const rim = shadowy(new THREE.Mesh(new THREE.TorusGeometry(.2, .018, 20, 72), phys(0x222326, { metalness: .6, roughness: .3 }))); rim.position.z = .015; clock.add(rim);
+const back = cyl(.2, .2, .02, phys(0x222326, { metalness: .5, roughness: .4 }), 0, 0, .005, clock, 48); back.rotation.x = Math.PI / 2;
+const face = new THREE.Mesh(new THREE.CircleGeometry(.19, 64), std(0xffffff, { map: faceTex, roughness: .6 })); face.position.z = .0155; clock.add(face);
+function hand(len, w, col, z) {
+  const geo = new THREE.BoxGeometry(w, len, .003); geo.translate(0, len / 2 - .02, 0);
+  const m = new THREE.Mesh(geo, phys(col, { roughness: .4, metalness: .3 })); m.position.z = z; m.castShadow = true; clock.add(m); return m;
+}
+const hourH = hand(.11, .013, 0x1d1d1f, .019), minH = hand(.155, .008, 0x1d1d1f, .022), secH = hand(.165, .003, 0xd63a2f, .025);
+for (const h of [hourH, minH, secH]) { h.userData.dynamic = true; h.castShadow = false; }
+const cap = new THREE.Mesh(new THREE.CircleGeometry(.008, 16), phys(0xd63a2f)); cap.position.z = .027; clock.add(cap);
+const clockGlass = new THREE.Mesh(new THREE.CircleGeometry(.195, 64), glassM()); clockGlass.position.z = .03; clock.add(clockGlass);
+interactive('clock', clock, V3(-2.5, 2.55, -2.93));
+
+/* ---------- Side table + tower crane -> crane ---------- */
+const tableG = group(3.38, 0, -2.45);
+const tableTex = woodGrain('#7d5d40', '45,25,10', [1, 1], 512, 512);
+box(.6, .03, .6, phys(0xffffff, { map: tableTex, roughness: .45, clearcoat: .3 }), 0, .665, 0, tableG, .008);
+[[-.26, -.26], [.26, -.26], [-.26, .26], [.26, .26]].forEach(([a, b]) => cyl(.012, .01, .65, steel, a, .325, b, tableG, 16));
+const craneG = group(3.38, .68, -2.47);
+const yellow = phys(0xf2b705, { roughness: .4, clearcoat: .4 });
+box(.14, .03, .14, phys(0x6b6b6b, { roughness: .7 }), 0, .015, 0, craneG, .004);
+for (const [a, b] of [[-.018, -.018], [.018, -.018], [-.018, .018], [.018, .018]]) box(.006, .52, .006, yellow, a, .29, b, craneG, 0);
+for (let i = 0; i < 9; i++) {
+  for (const zz of [.018, -.018]) { const br = box(.05, .004, .004, yellow, 0, .06 + i * .056, zz, craneG, 0); br.rotation.z = i % 2 ? .75 : -.75; }
+  for (const xx of [.018, -.018]) { const br = box(.004, .004, .05, yellow, xx, .06 + i * .056, 0, craneG, 0); br.rotation.x = i % 2 ? .75 : -.75; }
+}
+const jib = new THREE.Group(); jib.position.y = .56; jib.userData.dynamic = true; craneG.add(jib);
+box(.48, .02, .02, yellow, .16, 0, 0, jib, .002);
+box(.16, .02, .02, yellow, -.16, 0, 0, jib, .002);
+box(.05, .045, .04, phys(0x9a9a9a, { roughness: .6 }), -.21, -.02, 0, jib, .004);
+box(.045, .045, .045, phys(0xf7f7f5, { roughness: .3, clearcoat: .5 }), 0, -.035, .03, jib, .006);
+box(.006, .09, .006, yellow, 0, .05, 0, jib, 0);
+cyl(.0012, .0012, .2, std(0x333333), .3, -.1, 0, jib, 4);
+box(.02, .02, .02, phys(0xd63a2f, { roughness: .4 }), .3, -.2, 0, jib, .003);
+const cardTex = tex(480, 220, (x, w) => {
+  x.fillStyle = '#ffffff'; x.fillRect(0, 0, w, 220);
+  x.fillStyle = '#f2b705'; x.fillRect(0, 0, w, 12);
+  x.fillStyle = '#1d1d1f'; x.font = `600 38px ${FONT}`; x.fillText('Construction', 26, 80); x.fillText('investment', 26, 124);
+  x.fillStyle = '#6e6e73'; x.font = `400 24px ${FONT}`; x.fillText('KDI Monthly Economic Trends', 26, 170);
+  x.fillText('from Dec 2026', 26, 202);
+});
+const card = plane(.2, .092, std(0xffffff, { map: cardTex, roughness: .7 }));
+card.position.set(3.2, .73, -2.25); card.lookAt(0, .73 + .4, 0);
+interactive('crane', craneG, V3(3.38, 1.38, -2.47), V3(-.8, 0, .6));
+
+/* ---------- Static batching ----------
+   Merge meshes that share a material (and never move) into one mesh per material.
+   Interactive objects are merged inside their own group so clicking still works. */
+function batchStatic(root) {
+  root.updateMatrixWorld(true);
+  const inv = root.matrixWorld.clone().invert(), buckets = new Map();
+  (function visit(o) {
+    for (const c of o.children) {
+      if (c.userData.dynamic || (c.userData.id !== undefined && c !== root)) continue;
+      if (c.isMesh && !c.isInstancedMesh && !Array.isArray(c.material) && !c.userData.walk && c.raycast === THREE.Mesh.prototype.raycast) {
+        const key = `${c.material.uuid}|${c.castShadow}|${c.receiveShadow}`;
+        if (!buckets.has(key)) buckets.set(key, { mat: c.material, cast: c.castShadow, recv: c.receiveShadow, list: [] });
+        buckets.get(key).list.push(c);
+      }
+      visit(c);
+    }
+  })(root);
+  const mtx = new THREE.Matrix4();
+  for (const b of buckets.values()) {
+    if (b.list.length < 2) continue;
+    const geos = b.list.map(m => {
+      const g = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone();
+      for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
+      g.clearGroups(); g.applyMatrix4(mtx.multiplyMatrices(inv, m.matrixWorld));
+      return g;
+    });
+    const merged = mergeGeometries(geos, false);
+    if (!merged) continue;
+    const mesh = new THREE.Mesh(merged, b.mat); mesh.castShadow = b.cast; mesh.receiveShadow = b.recv; root.add(mesh);
+    for (const m of b.list) m.removeFromParent();
+  }
+}
+for (const id in items) batchStatic(items[id].root);
+batchStatic(scene);
+// Single-material meshes don't need per-face groups (rounded boxes come with six); the ray tracer would
+// read them as material indices and shift every material after them.
+scene.traverse(o => { if (o.isMesh && !Array.isArray(o.material) && o.geometry.groups.length) o.geometry.clearGroups(); });
+
+// The room never moves, so the shadow map is rendered once instead of every frame.
+renderer.shadowMap.autoUpdate = false;
+renderer.shadowMap.needsUpdate = true;
+
+/* ---------- Post-processing (desktop) ---------- */
+let composer = null;
+function buildComposer() {
+  composer = new EffectComposer(renderer);
+  composer.setPixelRatio(PR); composer.setSize(innerWidth, innerHeight);
+  composer.addPass(new RenderPass(scene, camera));
+  const gtao = new GTAOPass(scene, camera, innerWidth, innerHeight);
+  const setAOSize = gtao.setSize.bind(gtao);   // ambient occlusion at half resolution: most of the look, a fraction of the cost
+  gtao.setSize = (w, h) => setAOSize(Math.round(w / 2), Math.round(h / 2));
+  gtao.updateGtaoMaterial({ radius: .35, distanceExponent: 1.2, thickness: 1.2, scale: 1.1, samples: 12 });
+  gtao.blendIntensity = .85;
+  composer.addPass(gtao);
+  composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth / 2, innerHeight / 2), .3, .45, 1.0));
+  composer.addPass(new OutputPass());
+  composer.addPass(new SMAAPass(innerWidth * PR, innerHeight * PR));
+}
+if (HQ) { try { buildComposer(); } catch (e) { console.warn('Post-processing disabled:', e); composer = null; HQ = false; } }
+
+/* ---------- Collision ---------- */
+const BOUNDS = { x0: -3.72, x1: 3.72, z0: -2.72, z1: 2.72 };
+const OBST = [[-.95, .95, -3, -1.58], [-4, -3.5, -1.7, .5], [3.0, 4, -3, -2.08], [-3.8, -3.08, -2.9, -2.12]];
+const R = .22;
+function blocked(x, z) {
+  if (x < BOUNDS.x0 || x > BOUNDS.x1 || z < BOUNDS.z0 || z > BOUNDS.z1) return true;
+  return OBST.some(([a, b, c, d]) => x > a - R && x < b + R && z > c - R && z < d + R);
+}
+
+/* ---------- Camera state ---------- */
+const pos = new THREE.Vector3(.7, 1.6, 2.15);
+let yaw = .16, pitch = innerWidth < innerHeight ? -.16 : -.06;
+let walkTarget = null, turnTarget = null;
+
+/* ---------- Pick a quality level by timing this GPU ---------- */
+camera.position.copy(pos); camera.rotation.set(pitch, yaw, 0);
+renderer.compile(scene, camera);   // compile shaders up front so walking around doesn't stutter
+function gpuMs(fn, n = 6) {
+  const gl = renderer.getContext(), px = new Uint8Array(4);
+  fn(); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);   // warm-up (and wait for the GPU)
+  const t0 = performance.now();
+  for (let i = 0; i < n; i++) fn();
+  gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+  return (performance.now() - t0) / n;
+}
+try {
+  if (composer && gpuMs(() => composer.render(.016)) > 7) { composer = null; renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5)); }
+  if (!composer && gpuMs(() => renderer.render(scene, camera)) > 10) renderer.setPixelRatio(1);
+} catch (e) { composer = null; }
+
+function tryMove(dx, dz) {
+  const ox = pos.x, oz = pos.z;
+  if (!blocked(pos.x + dx, pos.z)) pos.x += dx;
+  if (!blocked(pos.x, pos.z + dz)) pos.z += dz;
+  return Math.hypot(pos.x - ox, pos.z - oz);
+}
+
+/* ---------- UI ---------- */
+const panel = $('#panel'), tip = $('#tip'), hint = $('#hint'), menu = $('#menu'), menuBtn = $('#menuBtn');
+if (coarse) hint.textContent = 'Drag to look around · Tap the floor to walk · Tap anything that glows';
+let hintGone = false;
+function dismissHint() { if (!hintGone) { hintGone = true; hint.classList.add('gone'); } }
+setTimeout(dismissHint, 12000);
+
+function openItem(id) {
+  const it = ITEMS[id]; if (!it) return;
+  visited.add(id);
+  panel.querySelector('.kicker').textContent = it.kicker;
+  const t = kst();
+  panel.querySelector('h2').textContent = id === 'clock' ? `It’s ${pad(t.h)}:${pad(t.m)} in Sejong` : it.title;
+  const meta = panel.querySelector('.meta'); meta.textContent = it.meta; meta.hidden = !it.meta;
+  const body = panel.querySelector('.body'); body.textContent = it.body; body.hidden = !it.body;
+  const links = panel.querySelector('.links'); links.replaceChildren();
+  it.links.forEach(([label, href], i) => {
+    const a = document.createElement('a'); a.textContent = label; a.href = href; if (i) a.className = 'alt';
+    if (/^https?:|\.pdf$/.test(href)) { a.target = '_blank'; a.rel = 'noopener'; }
+    links.append(a);
+  });
+  links.hidden = !it.links.length;
+  panel.hidden = false;
+  dismissHint();
+}
+function closePanel() { panel.hidden = true; }
+$('#close').addEventListener('click', closePanel);
+
+const ORDER = ['about', 'cv', 'econlet', 'kjio', 'llm', 'fomc', 'ku', 'kdis', 'crane', 'serc', 'clock', 'door'];
+ORDER.forEach(id => {
+  const li = document.createElement('li'), b = document.createElement('button');
+  b.innerHTML = `${ITEMS[id].menu} <span>· ${ITEMS[id].kicker}</span>`;
+  b.addEventListener('click', () => { toggleMenu(false); goTo(id); openItem(id); });
+  li.append(b); menu.append(li);
+});
+function toggleMenu(open) { menu.hidden = !open; menuBtn.setAttribute('aria-expanded', String(open)); }
+menuBtn.addEventListener('click', () => toggleMenu(menu.hidden));
+document.addEventListener('pointerdown', e => { if (!menu.hidden && !e.target.closest('.menuwrap')) toggleMenu(false); });
+
+const tmpBox = new THREE.Box3();
+function itemCenter(id) { return tmpBox.setFromObject(items[id].root).getCenter(new THREE.Vector3()); }
+function goTo(id) {
+  const root = items[id].root, c = itemCenter(id);
+  let n = root.userData.facing;
+  if (!n) { n = new THREE.Vector3(0, 0, 1).applyQuaternion(root.getWorldQuaternion(new THREE.Quaternion())); n.y = 0; n.normalize(); }
+  walkTarget = null;
+  for (const dist of [1.6, 1.3, 2.0, 1.0]) {
+    const spot = { x: c.x + n.x * dist, z: c.z + n.z * dist };
+    if (!blocked(spot.x, spot.z)) { walkTarget = spot; break; }
+  }
+  turnTarget = { id };
+  if (reduced && walkTarget) { pos.x = walkTarget.x; pos.z = walkTarget.z; walkTarget = null; }
+}
+function aimAt(c) {
+  const dx = c.x - pos.x, dz = c.z - pos.z;
+  return { yaw: Math.atan2(-dx, -dz), pitch: Math.atan2(c.y - pos.y, Math.hypot(dx, dz)) };
+}
+
+/* ---------- Picking ---------- */
+const ray = new THREE.Raycaster(); ray.camera = camera;
+const ndc = new THREE.Vector2();
+function pick(cx, cy) {
+  ndc.set(cx / innerWidth * 2 - 1, -(cy / innerHeight) * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  const hit = ray.intersectObjects(scene.children, true)[0];
+  if (!hit) return null;
+  let o = hit.object;
+  while (o && o.userData.id === undefined) o = o.parent;
+  if (o) return { id: o.userData.id };
+  if (hit.object.userData.walk) return { walk: hit.point };
+  return null;
+}
+let hovered = null;
+function setHover(id) {
+  if (hovered === id) return;
+  const paint = (key, hex) => key && items[key].root.traverse(m => {
+    if (!m.material) return;
+    [].concat(m.material).forEach(mt => { if (mt.emissive && !mt.emissiveMap) mt.emissive.setHex(hex); });
+  });
+  paint(hovered, 0x000000); paint(id, 0x2a2420);
+  hovered = id; canvas.classList.toggle('hovering', !!id);
+}
+
+/* ---------- Pointer + keys ---------- */
+let down = null, dragging = false, last = null;
+canvas.addEventListener('pointerdown', e => {
+  down = { x: e.clientX, y: e.clientY, id: e.pointerId }; last = { x: e.clientX, y: e.clientY }; dragging = false;
+  canvas.setPointerCapture(e.pointerId);
+});
+canvas.addEventListener('pointermove', e => {
+  if (down && e.pointerId === down.id) {
+    if (!dragging && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 6) { dragging = true; canvas.classList.add('dragging'); dismissHint(); tip.hidden = true; }
+    if (dragging) {
+      const k = e.pointerType === 'touch' ? .0062 : .0045;
+      yaw += (e.clientX - last.x) * k; pitch += (e.clientY - last.y) * k;
+      pitch = Math.max(-1.1, Math.min(1.1, pitch)); turnTarget = null;
+    }
+    last = { x: e.clientX, y: e.clientY };
+    return;
+  }
+  if (e.pointerType !== 'mouse') return;
+  if (photo) { tip.hidden = true; return; }   // no hover glow in photo mode (the ray tracer wouldn't see it)
+  const p = pick(e.clientX, e.clientY);
+  const id = p && p.id;
+  setHover(id || null);
+  if (id) { tip.hidden = false; tip.textContent = ITEMS[id].label; tip.style.left = e.clientX + 'px'; tip.style.top = e.clientY + 'px'; }
+  else tip.hidden = true;
+});
+function endPointer(e) {
+  if (!down || e.pointerId !== down.id) return;
+  if (!dragging && e.type === 'pointerup') {
+    const p = pick(e.clientX, e.clientY);
+    if (p && p.id) openItem(p.id);
+    else if (p && p.walk) { walkTarget = { x: p.walk.x, z: p.walk.z }; turnTarget = null; dismissHint(); }
+  }
+  down = null; dragging = false; canvas.classList.remove('dragging');
+}
+canvas.addEventListener('pointerup', endPointer);
+canvas.addEventListener('pointercancel', endPointer);
+canvas.addEventListener('pointerleave', () => { if (!down) { setHover(null); tip.hidden = true; } });
+
+const keys = new Set();
+addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closePanel(); toggleMenu(false); return; }
+  if (e.target.closest && e.target.closest('#menu, #panel')) return;
+  const k = e.key.toLowerCase();
+  if (['w', 'a', 's', 'd', 'q', 'e', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) {
+    keys.add(k); e.preventDefault(); walkTarget = null; turnTarget = null; dismissHint();
+  }
+});
+addEventListener('keyup', e => keys.delete(e.key.toLowerCase()));
+addEventListener('blur', () => keys.clear());
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.fov = innerWidth < 640 ? 78 : 66; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  if (composer) composer.setSize(innerWidth, innerHeight);
+});
+
+/* ---------- Photo mode (path tracing) ----------
+   While the camera moves you see the normal render; once it stops, a GPU path tracer
+   accumulates samples and the image converges toward a physically lit picture. */
+const photoBtn = $('#photoBtn'), photoBadge = $('#photoBadge');
+let pt = null, ptLoading = false, photo = false, lastSamples = -1;
+const MAX_SAMPLES = 400;
+const lastCam = { p: new THREE.Vector3(), q: new THREE.Quaternion() };
+async function setPhoto(on) {
+  photo = on; lastSamples = -1;
+  photoBtn.setAttribute('aria-pressed', String(on)); photoBtn.classList.toggle('on', on);
+  photoBadge.hidden = !on;
+  for (const id in items) items[id].marker.visible = !on;
+  for (const s of steam) s.visible = !on;
+  if (!on) return;
+  setHover(null); dismissHint();
+  if (pt) { pt.updateCamera(); return; }
+  if (ptLoading) return;
+  ptLoading = true; photoBadge.textContent = 'Preparing the ray tracer…';
+  try {
+    // The path tracer reads scene.backgroundRotation / environmentRotation, which three r160 doesn't define yet.
+    for (const k of ['backgroundRotation', 'environmentRotation']) if (!(k in THREE.Scene.prototype)) THREE.Scene.prototype[k] = new THREE.Euler();
+    const { WebGLPathTracer } = await import('three-gpu-pathtracer');
+    const { FullScreenQuad } = await import('three/addons/postprocessing/Pass.js');
+    const tracer = new WebGLPathTracer(renderer);
+    // Output filter: (1) clamp each texel to its 3x3 neighbourhood range, which removes isolated fireflies;
+    // (2) edge-aware (bilateral) gaussian over 5x5 texels, measured from the exact pixel position, which both
+    //     denoises and upscales the low-res trace smoothly. It eases off as samples accumulate.
+    const outM = new THREE.ShaderMaterial({
+      transparent: true, blending: THREE.NoBlending, depthTest: false, depthWrite: false,
+      premultipliedAlpha: renderer.getContextAttributes().premultipliedAlpha,
+      uniforms: { map: { value: null }, size: { value: new THREE.Vector2(1, 1) }, sigmaS: { value: 1 }, sigmaR: { value: .5 }, opacity: { value: 1 } },
+      vertexShader: `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+      fragmentShader: `
+        uniform sampler2D map; uniform vec2 size; uniform float sigmaS, sigmaR, opacity;
+        varying vec2 vUv;
+        float lum(vec3 c) { return dot(c, vec3(.2126, .7152, .0722)); }
+        vec3 tx(ivec2 p) { return texelFetch(map, clamp(p, ivec2(0), ivec2(size) - 1), 0).rgb; }
+        vec3 declip(ivec2 p) {
+          vec3 c = tx(p), mn = vec3(1e9), mx = vec3(0.);
+          for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
+            if (x == 0 && y == 0) continue;
+            vec3 s = tx(p + ivec2(x, y)); mn = min(mn, s); mx = max(mx, s);
+          }
+          return clamp(c, mn, mx);
+        }
+        void main() {
+          vec2 pos = vUv * size - .5; ivec2 base = ivec2(floor(pos + .5));
+          vec3 ref = declip(base); float lr = lum(ref);
+          vec3 acc = vec3(0.); float wsum = 0.;
+          for (int y = -2; y <= 2; y++) for (int x = -2; x <= 2; x++) {
+            ivec2 p = base + ivec2(x, y); vec3 s = tx(p);
+            float dr = (lum(s) - lr) / (sigmaR * (lr + .02));
+            vec2 d = vec2(p) - pos;
+            float w = exp(-dot(d, d) / (2. * sigmaS * sigmaS) - .5 * dr * dr);
+            acc += s * w; wsum += w;
+          }
+          gl_FragColor = vec4(wsum > 1e-4 ? acc / wsum : ref, 1.);
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
+          gl_FragColor.a = opacity;
+          #include <premultiplied_alpha_fragment>
+        }`,
+    });
+    const outQuad = new FullScreenQuad(outM);
+    tracer.renderToCanvasCallback = (target, r, quad) => {
+      const u = outM.uniforms, s = tracer.samples;
+      u.map.value = target.texture; u.size.value.set(target.width, target.height);
+      u.opacity.value = quad.material.opacity;
+      u.sigmaS.value = s < 32 ? 1.4 : s < 128 ? 1.15 : 1.0;
+      u.sigmaR.value = s < 32 ? .7 : s < 128 ? .5 : .38;
+      const ac = r.autoClear; r.autoClear = false; outQuad.render(r); r.autoClear = ac;
+    };
+    const strongGPU = !!composer;                 // the start-up benchmark already told us how fast this GPU is
+    tracer.tiles.set(strongGPU ? 2 : 3, strongGPU ? 2 : 3);   // small tiles per frame keep the page responsive
+    tracer.bounces = 3;
+    tracer.filterGlossyFactor = .5;               // fewer fireflies on glossy surfaces
+    tracer.minSamples = 2;
+    tracer.fadeDuration = 400;
+    tracer.dynamicLowRes = false;
+    // Trace a fixed pixel budget rather than a fixed fraction, so a big window doesn't make it crawl.
+    const budget = coarse ? 80e3 : strongGPU ? 900e3 : 150e3;
+    tracer.renderScale = Math.min(.75, Math.max(.2, Math.sqrt(budget / (innerWidth * innerHeight * renderer.getPixelRatio() ** 2))));
+    scene.environmentIntensity = .3;
+    await new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));   // let "Preparing…" paint first
+    // The tracer only takes equirect environment maps; the room is closed anyway, so hand it none.
+    // Small, very bright glowing surfaces only add fireflies (the real lights already do the lighting),
+    // so the tracer gets toned-down copies of the ceiling panel and lamp bulb.
+    // Same idea for the sky: light that only arrives by randomly hitting the window is noisy, so the sky glows
+    // less for the tracer and the window's area light (which it samples directly) does more of the work.
+    const env = scene.environment, panelI = panelM.emissiveIntensity, bulbI = bulb.material.emissiveIntensity;
+    const skyI = sky.material.emissiveIntensity, winI = winLight.intensity;
+    scene.environment = null; panelM.emissiveIntensity = .5; bulb.material.emissiveIntensity = .6;
+    sky.material.emissiveIntensity = .35; winLight.intensity = winI * 2.5;
+    try { tracer.setScene(scene, camera); }        // builds the BVH on the main thread (well under a second for this room)
+    finally {
+      scene.environment = env; panelM.emissiveIntensity = panelI; bulb.material.emissiveIntensity = bulbI;
+      sky.material.emissiveIntensity = skyI; winLight.intensity = winI;
+    }
+    pt = tracer;
+    lastCam.p.set(NaN, 0, 0);                      // force a camera sync on the next frame
+  } catch (err) {
+    console.warn('Photo mode unavailable:', err);
+    photoBadge.textContent = 'Ray tracing isn’t supported in this browser';
+    setTimeout(() => setPhoto(false), 2500);
+  } finally { ptLoading = false; }
+}
+photoBtn.addEventListener('click', () => setPhoto(!photo));
+
+/* ---------- Loop ---------- */
+const clockT = new THREE.Clock();
+const hudTime = $('#hudTime');
+let lastMinute = -1, perfFrames = 0, perfTime = 0, firstFrame = true, quality = composer ? 0 : 1;
+renderer.setAnimationLoop(() => {
+  const raw = clockT.getDelta(), dt = Math.min(raw, .05), time = clockT.elapsedTime;
+
+  // Adaptive quality: if frames are slow, drop post-processing first, then resolution.
+  if (quality < 2 && raw < .25 && !document.hidden) {
+    perfFrames++; perfTime += raw;
+    if (perfFrames === 60) {
+      if (perfTime / perfFrames > 1 / 50) {
+        if (composer) { composer = null; renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5)); quality = 1; }
+        else { renderer.setPixelRatio(Math.min(devicePixelRatio, 1)); quality = 2; }
+      } else quality = 2;
+      perfFrames = 0; perfTime = 0;
+    }
+  }
+
+  const fwd = (keys.has('w') || keys.has('arrowup') ? 1 : 0) - (keys.has('s') || keys.has('arrowdown') ? 1 : 0);
+  const side = (keys.has('d') ? 1 : 0) - (keys.has('a') ? 1 : 0);
+  const turn = (keys.has('arrowleft') || keys.has('q') ? 1 : 0) - (keys.has('arrowright') || keys.has('e') ? 1 : 0);
+  yaw += turn * 1.8 * dt;
+  if (fwd || side) {
+    const sp = 2.2 * dt, n = Math.hypot(fwd, side);
+    const fx = -Math.sin(yaw), fz = -Math.cos(yaw), rx = Math.cos(yaw), rz = -Math.sin(yaw);
+    tryMove((fx * fwd + rx * side) / n * sp, (fz * fwd + rz * side) / n * sp);
+  }
+
+  if (walkTarget) {
+    const dx = walkTarget.x - pos.x, dz = walkTarget.z - pos.z, d = Math.hypot(dx, dz);
+    if (d < .04) walkTarget = null;
+    else {
+      const step = Math.min(d, 2.4 * dt), moved = tryMove(dx / d * step, dz / d * step);
+      if (moved < step * .3) walkTarget = null;
+    }
+  }
+
+  if (turnTarget) {
+    const a = aimAt(itemCenter(turnTarget.id));
+    if (!panel.hidden && innerWidth >= 640) a.yaw -= .2;   // keep the object clear of the side panel
+    let dy = a.yaw - yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+    const k = reduced ? 1 : Math.min(1, dt * 5);
+    yaw += dy * k; pitch += (a.pitch - pitch) * k;
+    if (Math.abs(dy) < .002 && Math.abs(a.pitch - pitch) < .002 && !walkTarget) turnTarget = null;
+  }
+
+  camera.position.copy(pos); camera.rotation.set(pitch, yaw, 0);
+
+  const t = kst();
+  if (!photo) {   // in photo mode the scene is frozen so the ray tracer can keep accumulating
+    secH.rotation.z = -t.s / 60 * Math.PI * 2;
+    minH.rotation.z = -(t.m + t.s / 60) / 60 * Math.PI * 2;
+    hourH.rotation.z = -((t.h % 12) + t.m / 60) / 12 * Math.PI * 2;
+  }
+  if (t.m !== lastMinute) { lastMinute = t.m; hudTime.textContent = `${pad(t.h)}:${pad(t.m)}`; }
+
+  if (!reduced && !photo) {
+    jib.rotation.y += dt * .25;
+    for (const s of steam) {
+      s.userData.t = (s.userData.t + dt * .22) % 1; const u = s.userData.t;
+      s.position.set(.6 + Math.sin(u * 6 + s.id) * .012, .87 + u * .2, -2.44);
+      s.scale.setScalar(.03 + u * .07); s.material.opacity = Math.sin(u * Math.PI) * .35;
+    }
+  }
+  for (const id in items) {
+    const m = items[id].marker.material;
+    const base = reduced ? .9 : .6 + .4 * Math.sin(time * 2.6 + items[id].marker.userData.phase);
+    m.opacity = visited.has(id) ? base * .35 : base;
+  }
+
+  if (photo && pt) {
+    camera.updateMatrixWorld();
+    if (!camera.position.equals(lastCam.p) || !camera.quaternion.equals(lastCam.q)) {
+      lastCam.p.copy(camera.position); lastCam.q.copy(camera.quaternion); pt.updateCamera();
+    }
+    if (pt.samples < MAX_SAMPLES) pt.renderSample();   // once converged, stop and let the GPU rest (the canvas keeps the last frame)
+    const n = Math.min(MAX_SAMPLES, Math.floor(pt.samples));
+    if (n !== lastSamples) {
+      lastSamples = n;
+      photoBadge.innerHTML = n < 1 ? 'Hold still to ray trace'
+        : n >= MAX_SAMPLES ? `<b>Done</b> · ${n} samples` : `<b>Ray tracing</b> · ${n} sample${n === 1 ? '' : 's'}`;
+    }
+  } else if (composer) composer.render(dt); else renderer.render(scene, camera);
+  if (firstFrame) { firstFrame = false; $('#loading').classList.add('done'); setTimeout(() => { $('#loading').hidden = true; }, 700); }
+});
+</script>
+</body>
+</html>
